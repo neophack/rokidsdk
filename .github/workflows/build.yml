@@ -78,18 +78,6 @@ windows:
           make
           make install DESTDIR=$PWD/../artifacts
           popd
-      - name: Install hidapi
-        env:
-          HIDAPI_VERSION: 0.12.0
-        run: |
-          wget -c https://github.com/libusb/hidapi/archive/refs/tags/hidapi-${HIDAPI_VERSION}.tar.gz
-          tar xzf hidapi-${HIDAPI_VERSION}.tar.gz
-          pushd hidapi-hidapi-${HIDAPI_VERSION}
-          autoreconf --install --force
-          ./configure --host=${{ matrix.arch }}-w64-mingw32 --prefix=/usr LDFLAGS='-static-libgcc'
-          make
-          make install DESTDIR=$PWD/../artifacts
-          popd
       - name: Build
         run: |
           mkdir build
