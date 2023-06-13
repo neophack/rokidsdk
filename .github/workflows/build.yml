@@ -1,0 +1,89 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cmake-version: [3.10, 3.11, 3.12]
+        compiler: [gcc-7, gcc-8, gcc-9, clang-8, clang-9]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libusb-1.0-0-dev
+    - name: Build
+      run: |
+        mkdir build
+        cd build
+        cmake ..
+        make
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1.0.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v1.0.0
+        release_name: Release 1.0.0
+        body: |
+          This is the first release of my project.
+        draft: false
+        prerelease: false
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./build/my_program
+        asset_name: my_program
+        asset_content_type: application/octet-stream
+
+  windows:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Install dependencies
+      run: |
+        choco install -y cmake --version=3.12.3
+        choco install -y mingw --version=8.1.0
+        choco install -y libusb --version=1.0.23
+    - name: Build
+      run: |
+        mkdir build
+        cd build
+        cmake .. -G "MinGW Makefiles"
+        mingw32-make
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1.0.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v1.0.0
+        release_name: Release 1.0.0
+        body: |
+          This is the first release of my project.
+        draft: false
+        prerelease: false
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./build/my_program.exe
+        asset_name: my_program.exe
+        asset_content_type: application/octet-stream
+
+
