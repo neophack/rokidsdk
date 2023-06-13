@@ -34,9 +34,7 @@ jobs:
       with:
         tag_name: v1.0.0
         release_name: Release 1.0.0
-        body: |
-          This is the first release of my project.
-        draft: false
+        draft: true
         prerelease: false
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1.0.1
@@ -44,8 +42,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./build/my_program
-        asset_name: my_program
+        asset_path: ./build/libusb_control_transfer_demo
+        asset_name: libusb_control_transfer_demo
         asset_content_type: application/octet-stream
 
   windows:
@@ -72,9 +70,7 @@ jobs:
       with:
         tag_name: v1.0.0
         release_name: Release 1.0.0
-        body: |
-          This is the first release of my project.
-        draft: false
+        draft: true
         prerelease: false
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1.0.1
@@ -82,8 +78,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./build/my_program.exe
-        asset_name: my_program.exe
+        asset_path: ./build/libusb_control_transfer_demo.exe
+        asset_name: libusb_control_transfer_demo.exe
         asset_content_type: application/octet-stream
 
 
