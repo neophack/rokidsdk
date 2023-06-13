@@ -20,23 +20,17 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential libusb-1.0-0-dev
-    - name: Get latest tag
-      id: get_latest_tag
-      run: echo ::set-output name=latest_tag::$(git describe --abbrev=0 --tags)
-    - name: Get commit count
-      id: get_commit_count
-      run: echo ::set-output name=commit_count::$(git rev-list $(git describe --abbrev=0 --tags)..HEAD --count)
     - name: Set version
       id: set_version
-      run: echo ::set-output name=version::${{ steps.get_latest_tag.outputs.latest_tag }}.${{ steps.get_commit_count.outputs.commit_count }}
+      run: echo ::set-output name=version::${{ github.sha }}
     - name: Build
       run: |
         mkdir build
         cd build
         cmake -DVERSION=${{ steps.set_version.outputs.version }} ..
         make
-    - name: Create Release
-      id: create_release
+    - name: Create Release Draft
+      id: create_release_draft
       uses: actions/create-release@v1.0.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -45,15 +39,6 @@ jobs:
         release_name: Release ${{ steps.set_version.outputs.version }}
         draft: true
         prerelease: false
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./build/libusb_control_transfer_demo
-        asset_name: libusb_control_transfer_demo
-        asset_content_type: application/octet-stream
 
   windows:
     runs-on: windows-latest
@@ -63,23 +48,17 @@ jobs:
     - uses: msys2/setup-msys2@v2
       with:
         install: autoconf automake libtool pkg-config make gcc cmake
-    - name: Get latest tag
-      id: get_latest_tag
-      run: echo ::set-output name=latest_tag::$(git describe --abbrev=0 --tags)
-    - name: Get commit count
-      id: get_commit_count
-      run: echo ::set-output name=commit_count::$(git rev-list $(git describe --abbrev=0 --tags)..HEAD --count)
     - name: Set version
       id: set_version
-      run: echo ::set-output name=version::${{ steps.get_latest_tag.outputs.latest_tag }}.${{ steps.get_commit_count.outputs.commit_count }}
+      run: echo ::set-output name=version::${{ github.sha }}
     - name: Build
       run: |
         mkdir build
         cd build
         cmake -DVERSION=${{ steps.set_version.outputs.version }} .. -G "MinGW Makefiles"
         mingw32-make
-    - name: Create Release
-      id: create_release
+    - name: Create Release Draft
+      id: create_release_draft
       uses: actions/create-release@v1.0.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -88,12 +67,3 @@ jobs:
         release_name: Release ${{ steps.set_version.outputs.version }}
         draft: true
         prerelease: false
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./build/libusb_control_transfer_demo.exe
-        asset_name: libusb_control_transfer_demo.exe
-        asset_content_type: application/octet-stream
