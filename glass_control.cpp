@@ -4,7 +4,7 @@ GlassControl::GlassControl(uint16_t vid, uint16_t pid) {
     handle = NULL;
     memset(&desc, 0, sizeof(desc));
     libusb_init(NULL);
-    libusb_set_debug(NULL, 3);
+//    libusb_set_debug(NULL, 1);
     mutex_lock = new std::mutex();
     this->vid = vid;
     this->pid = pid;
@@ -22,31 +22,46 @@ GlassControl::~GlassControl() {
 int GlassControl::GlassRequest(unsigned char request_type, unsigned short value, unsigned short index, unsigned char *data, unsigned long length) {
     mutex_lock->lock();
     int ret = 0;
+//    if (handle == NULL) {
+//        libusb_device **devs;
+//        ssize_t cnt = libusb_get_device_list(NULL, &devs);
+//        if (cnt < 0) {
+//            mutex_lock->unlock();
+//            return -1;
+//        }
+//        for (int i = 0; i < cnt; i++) {
+//            libusb_device *dev = devs[i];
+//            libusb_device_descriptor dev_desc;
+//            if (libusb_get_device_descriptor(dev, &dev_desc) < 0) {
+//                continue;
+//            }
+//            if (dev_desc.idVendor == vid && dev_desc.idProduct == pid) {
+//                if (libusb_open(dev, &handle) == 0) {
+//                    memcpy(&desc, &dev_desc, sizeof(dev_desc));
+//                    break;
+//                }
+//            }
+//        }
+//        libusb_free_device_list(devs, 1);
+//        if (handle == NULL) {
+//            mutex_lock->unlock();
+//            return -1;
+//        }
+//    }
+
+    // 打开设备
+    handle = libusb_open_device_with_vid_pid(NULL, vid, pid);
     if (handle == NULL) {
-        libusb_device **devs;
-        ssize_t cnt = libusb_get_device_list(NULL, &devs);
-        if (cnt < 0) {
-            mutex_lock->unlock();
-            return -1;
-        }
-        for (int i = 0; i < cnt; i++) {
-            libusb_device *dev = devs[i];
-            libusb_device_descriptor dev_desc;
-            if (libusb_get_device_descriptor(dev, &dev_desc) < 0) {
-                continue;
-            }
-            if (dev_desc.idVendor == vid && dev_desc.idProduct == pid) {
-                if (libusb_open(dev, &handle) == 0) {
-                    memcpy(&desc, &dev_desc, sizeof(dev_desc));
-                    break;
-                }
-            }
-        }
-        libusb_free_device_list(devs, 1);
-        if (handle == NULL) {
-            mutex_lock->unlock();
-            return -1;
-        }
+        fprintf(stderr, "Failed to open device\n");
+        libusb_exit(NULL);
+        return EXIT_FAILURE;
+    }
+
+
+    int interface_number = 1;
+    ret = libusb_claim_interface(handle, interface_number);
+    if (ret < 0) {
+        // 处理错误
     }
     ret = libusb_control_transfer(handle, request_type & 0x80 | 0x40, request_type, index, value, data, length, 1000);
     if (ret < 0) {
