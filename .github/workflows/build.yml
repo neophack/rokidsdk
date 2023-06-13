@@ -20,11 +20,20 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential libusb-1.0-0-dev
+    - name: Get latest tag
+      id: get_latest_tag
+      run: echo ::set-output name=latest_tag::$(git describe --abbrev=0 --tags)
+    - name: Get commit count
+      id: get_commit_count
+      run: echo ::set-output name=commit_count::$(git rev-list $(git describe --abbrev=0 --tags)..HEAD --count)
+    - name: Set version
+      id: set_version
+      run: echo ::set-output name=version::${{ steps.get_latest_tag.outputs.latest_tag }}.${{ steps.get_commit_count.outputs.commit_count }}
     - name: Build
       run: |
         mkdir build
         cd build
-        cmake ..
+        cmake -DVERSION=${{ steps.set_version.outputs.version }} ..
         make
     - name: Create Release
       id: create_release
@@ -32,8 +41,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v1.0.0
-        release_name: Release 1.0.0
+        tag_name: ${{ steps.set_version.outputs.version }}
+        release_name: Release ${{ steps.set_version.outputs.version }}
         draft: true
         prerelease: false
     - name: Upload Release Asset
@@ -51,16 +60,23 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-    - name: Install dependencies
-      run: |
-        choco install -y cmake --version=3.12.3
-        choco install -y mingw --version=8.1.0
-        choco install -y libusb --version=1.0.23
+    - uses: msys2/setup-msys2@v2
+      with:
+        install: autoconf automake libtool pkg-config make gcc cmake
+    - name: Get latest tag
+      id: get_latest_tag
+      run: echo ::set-output name=latest_tag::$(git describe --abbrev=0 --tags)
+    - name: Get commit count
+      id: get_commit_count
+      run: echo ::set-output name=commit_count::$(git rev-list $(git describe --abbrev=0 --tags)..HEAD --count)
+    - name: Set version
+      id: set_version
+      run: echo ::set-output name=version::${{ steps.get_latest_tag.outputs.latest_tag }}.${{ steps.get_commit_count.outputs.commit_count }}
     - name: Build
       run: |
         mkdir build
         cd build
-        cmake .. -G "MinGW Makefiles"
+        cmake -DVERSION=${{ steps.set_version.outputs.version }} .. -G "MinGW Makefiles"
         mingw32-make
     - name: Create Release
       id: create_release
@@ -68,8 +84,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v1.0.0
-        release_name: Release 1.0.0
+        tag_name: ${{ steps.set_version.outputs.version }}
+        release_name: Release ${{ steps.set_version.outputs.version }}
         draft: true
         prerelease: false
     - name: Upload Release Asset
@@ -81,5 +97,3 @@ jobs:
         asset_path: ./build/libusb_control_transfer_demo.exe
         asset_name: libusb_control_transfer_demo.exe
         asset_content_type: application/octet-stream
-
-
