@@ -1,0 +1,152 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cmake-version: [3.12]
+        compiler: [clang-9]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libudev-dev automake libtool
+    - name: Install libusb
+      env:
+        LIBUSB_VERSION: 1.0.26
+      run: |
+        wget -c https://github.com/libusb/libusb/archive/refs/tags/v${LIBUSB_VERSION}.tar.gz
+        tar xzf v${LIBUSB_VERSION}.tar.gz
+        pushd libusb-${LIBUSB_VERSION}
+        autoreconf --install --force
+        ./configure --prefix=/usr
+        make
+        make install DESTDIR=$PWD/../artifacts
+        cat $PWD/../artifacts/usr/lib/pkgconfig/libusb-1.0.pc
+        sed -i 's/-I${includedir}\/libusb-1.0/-I${includedir}/g' $PWD/../artifacts/usr/lib/pkgconfig/libusb-1.0.pc
+        popd
+    - name: Get commit count
+      id: get_commit_count
+      run: echo ::set-output name=commit_count::$(git rev-list $(git describe --abbrev=0 --tags)..HEAD --count)
+    - name: Set version
+      id: set_version
+      run: echo ::set-output name=version::${{ steps.get_latest_tag.outputs.latest_tag }}.${{ steps.get_commit_count.outputs.commit_count }}
+    - name: Build
+      run: |
+        mkdir build
+        cd build
+        cmake -DVERSION=${{ steps.set_version.outputs.version }} ..
+        make
+      env:
+        PKG_CONFIG_LIBDIR: ${{ github.workspace }}/artifacts/usr/lib/pkgconfig
+        PKG_CONFIG_SYSROOT_DIR: ${{ github.workspace }}/artifacts
+        PKG_CONFIG_ALLOW_SYSTEM_CFLAGS: 1
+        PKG_CONFIG_ALLOW_SYSTEM_LIBS: 1
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: my-artifacts
+        path: ./build/libusb_control_transfer_demo
+        
+  windows:
+    name: Windows
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: sudo apt-get install mingw-w64 libusb-1.0-0-dev tree
+      - name: Install libusb
+        env:
+          LIBUSB_VERSION: 1.0.26
+        run: |
+          wget -c https://github.com/libusb/libusb/archive/refs/tags/v${LIBUSB_VERSION}.tar.gz
+          tar xzf v${LIBUSB_VERSION}.tar.gz
+          pushd libusb-${LIBUSB_VERSION}
+          autoreconf --install --force
+          ./configure --host=${{ matrix.arch }}-w64-mingw32 --prefix=/usr
+          make
+          make install DESTDIR=$PWD/../artifacts
+          cat $PWD/../artifacts/usr/lib/pkgconfig/libusb-1.0.pc
+          sed -i 's/-I${includedir}\/libusb-1.0/-I${includedir}/g' $PWD/../artifacts/usr/lib/pkgconfig/libusb-1.0.pc
+          popd
+     
+      - name: Build
+        run: |
+          mkdir build
+          cd build
+          
+          cmake -DVERSION=${{ steps.set_version.outputs.version }} -DBUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE=toolchain-x86_64-w64-mingw32.cmake .. 
+          make
+        env:
+          PKG_CONFIG_LIBDIR: ${{ github.workspace }}/artifacts/usr/lib/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: ${{ github.workspace }}/artifacts
+          PKG_CONFIG_ALLOW_SYSTEM_CFLAGS: 1
+          PKG_CONFIG_ALLOW_SYSTEM_LIBS: 1
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: my-artifacts
+          path: ./build/libusb_control_transfer_demo.exe
+      
+  release:
+    needs: [ubuntu,windows]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: my-artifacts
+          path: ${{ github.workspace }}/artifacts
+      - name: Display structure of downloaded files
+        run: ls -R
+        working-directory: ${{ github.workspace }}/artifacts
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v1.0.5
+          release_name: Release v1.0.5
+          body: |
+            Release notes for v1.0.5
+          draft: true
+          prerelease: false
+
+      - name: Upload release assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/libusb_control_transfer_demo.exe
+          asset_name: glass_control_windows.exe
+          asset_content_type: application/octet-stream 
+      - name: Upload release assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/libusb_control_transfer_demo
+          asset_name: glass_control_linux
+          asset_content_type: application/octet-stream
+
+

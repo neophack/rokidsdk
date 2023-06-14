@@ -1,14 +1,17 @@
 #include "glass_control.h"
 
-GlassControl::GlassControl(uint16_t vid, uint16_t pid) {
+
+GlassControl::GlassControl(uint16_t vid, uint16_t pid, uint8_t interface_num) {
     handle = NULL;
     memset(&desc, 0, sizeof(desc));
     libusb_init(NULL);
-//    libusb_set_debug(NULL, 1);
+    //    libusb_set_debug(NULL, 1);
     mutex_lock = new std::mutex();
     this->vid = vid;
     this->pid = pid;
+    this->interface_num = interface_num;
 }
+
 
 GlassControl::~GlassControl() {
     if (handle != NULL) {
@@ -22,32 +25,6 @@ GlassControl::~GlassControl() {
 int GlassControl::GlassRequest(unsigned char request_type, unsigned short value, unsigned short index, unsigned char *data, unsigned long length) {
     mutex_lock->lock();
     int ret = 0;
-//    if (handle == NULL) {
-//        libusb_device **devs;
-//        ssize_t cnt = libusb_get_device_list(NULL, &devs);
-//        if (cnt < 0) {
-//            mutex_lock->unlock();
-//            return -1;
-//        }
-//        for (int i = 0; i < cnt; i++) {
-//            libusb_device *dev = devs[i];
-//            libusb_device_descriptor dev_desc;
-//            if (libusb_get_device_descriptor(dev, &dev_desc) < 0) {
-//                continue;
-//            }
-//            if (dev_desc.idVendor == vid && dev_desc.idProduct == pid) {
-//                if (libusb_open(dev, &handle) == 0) {
-//                    memcpy(&desc, &dev_desc, sizeof(dev_desc));
-//                    break;
-//                }
-//            }
-//        }
-//        libusb_free_device_list(devs, 1);
-//        if (handle == NULL) {
-//            mutex_lock->unlock();
-//            return -1;
-//        }
-//    }
 
     // 打开设备
     handle = libusb_open_device_with_vid_pid(NULL, vid, pid);
@@ -57,9 +34,7 @@ int GlassControl::GlassRequest(unsigned char request_type, unsigned short value,
         return EXIT_FAILURE;
     }
 
-
-    int interface_number = 1;
-    ret = libusb_claim_interface(handle, interface_number);
+    ret = libusb_claim_interface(handle, interface_num);
     if (ret < 0) {
         // 处理错误
     }
@@ -79,6 +54,15 @@ void GlassControl::GlassSetDisplayMode(int mode) {
     data[0] = (unsigned char)mode;
     GlassRequest(0x01, 1, (unsigned short)mode, data, 1);
 }
+
+void GlassControl::SetBrightness(int index, int brightness) {
+    unsigned char data[4];
+    memset(data, 0, sizeof(data));
+    data[0] = (unsigned char)index;
+    data[1] = (unsigned char)brightness;
+    GlassRequest(0x02, index, brightness, data, 1);
+}
+
 
 void GlassControl::GlassReboot(int flag) {
     unsigned char data[16];
